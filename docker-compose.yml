@@ -1,0 +1,106 @@
+version: "3.9"
+
+networks:
+  ragnet:
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rag_pg
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ragdb}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ragpass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rag} -d ${POSTGRES_DB:-ragdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [ragnet]
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag_ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: "0.0.0.0:11434"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:11434/api/tags"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 15s
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+    networks: [ragnet]
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: rag_phoenix
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+    volumes:
+      - phoenix:/root/.phoenix
+    networks: [ragnet]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rag_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      phoenix:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ragdb
+      DB_USER: rag
+      DB_PASS: ragpass
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-rag}:${POSTGRES_PASSWORD:-ragpass}@postgres:5432/${POSTGRES_DB:-ragdb}
+      PGVECTOR_COLLECTION: ${PGVECTOR_COLLECTION:-documents}
+      OLLAMA_BASE_URL: http://ollama:11434
+      PHOENIX_HOST: http://phoenix:6006
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+      CORS_ALLOW_ORIGINS: http://localhost:8080,http://openwebui:8080
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    networks: [ragnet]
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: rag_openwebui
+    depends_on:
+      backend:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      BACKEND_URL: http://rag_backend:8000
+      WEBUI_NAME: "Agentic RAG UI"
+    ports:
+      - "8080:8080"
+    volumes:
+      - openwebui:/app/backend/data
+    networks: [ragnet]
+
+volumes:
+  pgdata:
+  ollama:
+  openwebui:
+  phoenix:

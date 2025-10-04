@@ -1,0 +1,55 @@
+# Python Bytecode files
+*.py[cod]
+__pycache__/
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python distribution packages
+*.egg-info/
+dist/
+build/
+
+# Docker files
+*.log
+*.pid
+*.swp
+docker-compose.override.yml
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VSCode settings
+.vscode/
+
+# Pycharm project settings
+.idea/
+
+# Temporary files
+*.bak
+*.swp
+*.swo
+*.tmp
+
+# Environment variables file (you might want to keep this secret)
+.env
+.env.example
+
+# Database files (PostgreSQL)
+pgdata/
+
+# Python testing cache
+.pytest_cache/
+
+# Log files
+*.log
+
+# Coverage report
+.coverage
+*.coverage.*
+
+# Coverage output directory
+htmlcov/
